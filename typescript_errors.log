@@ -1,0 +1,3 @@
+app/page.tsx(4,10): error TS2305: Module '"lucide-react"' has no exported member 'Instagram'.
+app/page.tsx(4,21): error TS2305: Module '"lucide-react"' has no exported member 'Youtube'.
+app/page.tsx(4,36): error TS2305: Module '"lucide-react"' has no exported member 'Github'.
