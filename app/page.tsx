@@ -34,7 +34,7 @@ export default function Page() {
 
   useEffect(() => {
     // Firebase Firestore에서 'links' 컬렉션을 구독하여 실시간으로 가져옵니다.
-    const q = query(collection(db, "links"), orderBy("createdAt", "asc"));
+    const q = query(collection(db, "links"), orderBy("createdAt", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedLinks = snapshot.docs.map((doc) => ({
         id: doc.id,
