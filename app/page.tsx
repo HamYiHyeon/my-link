@@ -7,6 +7,18 @@ import { db } from "@/lib/firebase";
 import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "firebase/firestore";
 import { LinkItemCard } from "@/components/link-item-card";
 
+const determineIcon = (url: string, title: string) => {
+  const lowerUrl = url.toLowerCase();
+  const lowerTitle = title.toLowerCase();
+  
+  if (lowerUrl.includes("instagram.com") || lowerTitle.includes("인스타그램") || lowerTitle.includes("instagram")) return "instagram";
+  if (lowerUrl.includes("youtube.com") || lowerUrl.includes("youtu.be") || lowerTitle.includes("유튜브") || lowerTitle.includes("youtube")) return "youtube";
+  if (lowerUrl.includes("github.com") || lowerTitle.includes("깃허브") || lowerTitle.includes("github")) return "github";
+  if (lowerUrl.includes("velog.io") || lowerUrl.includes("tistory.com") || lowerUrl.includes("brunch.co.kr") || lowerTitle.includes("블로그") || lowerTitle.includes("blog")) return "book";
+  
+  return "user";
+};
+
 export default function Page() {
   const [links, setLinks] = useState<LinkItem[]>([]);
 
@@ -32,7 +44,7 @@ export default function Page() {
     try {
       const linkToAdd = {
         ...newLink,
-        icon: "user", 
+        icon: determineIcon(newLink.url, newLink.title), 
         createdAt: serverTimestamp(),
       };
       
