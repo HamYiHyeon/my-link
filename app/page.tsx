@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { DUMMY_LINKS, LinkItem } from "@/data/links";
+import { useState, useEffect } from "react";
+import { LinkItem } from "@/data/links";
 import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
 import { 
@@ -14,6 +14,8 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { AddLinkDialog } from "@/components/add-link-dialog";
+import { db } from "@/lib/firebase";
+import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "firebase/firestore";
 
 // Icon mapping function
 const getIconRenderer = (iconName?: string) => {
@@ -28,17 +30,40 @@ const getIconRenderer = (iconName?: string) => {
 };
 
 export default function Page() {
-  const [links, setLinks] = useState<LinkItem[]>(DUMMY_LINKS);
+  const [links, setLinks] = useState<LinkItem[]>([]);
 
-  const handleAddLink = (newLink: Omit<LinkItem, "id">) => {
-    const linkToAdd: LinkItem = {
-      ...newLink,
-      id: Math.random().toString(36).substr(2, 9),
-      // For now, new links use the default user icon. 
-      // Later we can implement Google Favicon API or automatic detection.
-      icon: "user", 
-    };
-    setLinks([...links, linkToAdd]);
+  useEffect(() => {
+    // Firebase Firestore에서 'links' 컬렉션을 구독하여 실시간으로 가져옵니다.
+    const q = query(collection(db, "links"), orderBy("createdAt", "asc"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetchedLinks = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        title: doc.data().title,
+        url: doc.data().url,
+        icon: doc.data().icon,
+      })) as LinkItem[];
+      setLinks(fetchedLinks);
+    }, (error) => {
+      console.error("Firestore fetching error:", error);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleAddLink = async (newLink: Omit<LinkItem, "id">) => {
+    try {
+      const linkToAdd = {
+        ...newLink,
+        icon: "user", 
+        createdAt: serverTimestamp(),
+      };
+      
+      // Firestore의 'links' 컬렉션에 새 문서 추가
+      await addDoc(collection(db, "links"), linkToAdd);
+    } catch (error) {
+      console.error("Error adding link: ", error);
+      alert("링크를 추가하는 중 오류가 발생했습니다.");
+    }
   };
 
   return (
