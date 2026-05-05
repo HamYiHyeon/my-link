@@ -1,0 +1,70 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================
+    // 사용자 프로필: users/{userId}
+    // ============================================
+    match /users/{userId} {
+      // 읽기: 누구나 가능 (공개 프로필 페이지용)
+      allow read: if true;
+
+      // 생성: 로그인 + 본인 ID 일치 + 필수 필드 검증
+      allow create: if request.auth != null
+                    && request.auth.uid == userId
+                    && request.resource.data.keys().hasAll(['displayName', 'username', 'email', 'createdAt'])
+                    && request.resource.data.displayName is string
+                    && request.resource.data.username is string
+                    && request.resource.data.displayName.size() > 0
+                    && request.resource.data.username.size() > 0;
+
+      // 수정: 로그인 + 본인 ID 일치 + 필수 필드 검증 + email 변경 불가
+      allow update: if request.auth != null
+                    && request.auth.uid == userId
+                    && request.resource.data.displayName is string
+                    && request.resource.data.username is string
+                    && request.resource.data.displayName.size() > 0
+                    && request.resource.data.username.size() > 0
+                    && request.resource.data.email == resource.data.email;
+
+      // 삭제: 로그인 + 본인 ID 일치
+      allow delete: if request.auth != null
+                    && request.auth.uid == userId;
+
+      // ============================================
+      // 사용자 링크: users/{userId}/links/{linkId}
+      // ============================================
+      match /links/{linkId} {
+        // 읽기: 누구나 가능 (공개 프로필 페이지용)
+        allow read: if true;
+
+        // 생성: 로그인 + 본인 ID 일치 + 필수 필드 검증
+        allow create: if request.auth != null
+                      && request.auth.uid == userId
+                      && request.resource.data.keys().hasAll(['title', 'url', 'createdAt'])
+                      && request.resource.data.title is string
+                      && request.resource.data.url is string
+                      && request.resource.data.title.size() > 0
+                      && request.resource.data.url.size() > 0;
+
+        // 수정: 로그인 + 본인 ID 일치
+        allow update: if request.auth != null
+                      && request.auth.uid == userId
+                      && request.resource.data.title is string
+                      && request.resource.data.url is string
+                      && request.resource.data.title.size() > 0
+                      && request.resource.data.url.size() > 0;
+
+        // 삭제: 로그인 + 본인 ID 일치
+        allow delete: if request.auth != null
+                      && request.auth.uid == userId;
+      }
+    }
+
+    // 그 외 모든 경로: 접근 차단
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

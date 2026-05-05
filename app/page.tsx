@@ -22,7 +22,8 @@ import { LinkItemCard } from "@/components/link-item-card";
 import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { PencilEdit02Icon, CheckReadOnlyIcon } from "@hugeicons/core-free-icons";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { PencilEdit02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 const determineIcon = (url: string, title: string) => {
@@ -38,9 +39,11 @@ const determineIcon = (url: string, title: string) => {
 };
 
 export default function Page() {
-  const { user, loginWithGoogle, loading } = useAuth();
+  const { user, loginWithGoogle, loading: authLoading } = useAuth();
+  const queryClient = useQueryClient();
   const [links, setLinks] = useState<LinkItem[]>([]);
-  const [profile, setProfile] = useState({ username: "", displayName: "", description: "" });
+  
+  // Profile 편집용 로컬 상태
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editUsername, setEditUsername] = useState("");
   const [editName, setEditName] = useState("");
@@ -48,35 +51,25 @@ export default function Page() {
   const [isCheckingUsername, setIsCheckingUsername] = useState(false);
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
 
-  useEffect(() => {
-    if (!user) {
-      setLinks([]);
-      setProfile({ displayName: "", description: "" });
-      return;
-    }
-
-    // Load Profile
-    const profileRef = doc(db, "users", user.uid);
-    const fetchProfile = async () => {
+  // 1. 프로필 조회 Query
+  const { data: profile, isLoading: profileLoading } = useQuery({
+    queryKey: ["profile", user?.uid],
+    queryFn: async () => {
+      if (!user) return null;
+      const profileRef = doc(db, "users", user.uid);
       const snap = await getDoc(profileRef);
+      
+      const emailPrefix = user.email ? user.email.split('@')[0] : "이름 없음";
+      const fallbackName = user.displayName || "이름 없음";
+
       if (snap.exists()) {
         const data = snap.data();
-        const emailPrefix = user.email ? user.email.split('@')[0] : "이름 없음";
-        const fallbackName = user.displayName || "이름 없음";
-        
-        setProfile({
+        return {
           username: data.username || emailPrefix,
           displayName: data.displayName || fallbackName,
           description: data.description || "소개글을 입력해주세요.",
-        });
-        setEditUsername(data.username || emailPrefix);
-        setEditName(data.displayName || fallbackName);
-        setEditDesc(data.description || "");
+        };
       } else {
-        // Create default profile
-        const emailPrefix = user.email ? user.email.split('@')[0] : "이름 없음";
-        const fallbackName = user.displayName || "이름 없음";
-        
         const defaultProfile = {
           username: emailPrefix,
           displayName: fallbackName,
@@ -85,20 +78,32 @@ export default function Page() {
           createdAt: serverTimestamp(),
         };
         await setDoc(profileRef, defaultProfile);
-        setProfile({
+        return {
           username: defaultProfile.username,
           displayName: defaultProfile.displayName,
           description: defaultProfile.description,
-        });
-        setEditUsername(defaultProfile.username);
-        setEditName(defaultProfile.displayName);
-        setEditDesc(defaultProfile.description);
+        };
       }
-    };
+    },
+    enabled: !!user,
+  });
 
-    fetchProfile();
+  // 초기 편집 값 설정
+  useEffect(() => {
+    if (profile && !isEditingProfile) {
+      setEditUsername(profile.username);
+      setEditName(profile.displayName);
+      setEditDesc(profile.description);
+    }
+  }, [profile, isEditingProfile]);
 
-    // Subscribe to Links
+  // 2. 링크 실시간 구독
+  useEffect(() => {
+    if (!user) {
+      setLinks([]);
+      return;
+    }
+
     const linksRef = collection(db, "users", user.uid, "links");
     const q = query(linksRef, orderBy("createdAt", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -116,26 +121,91 @@ export default function Page() {
     return () => unsubscribe();
   }, [user]);
 
-  const handleAddLink = async (newLink: Omit<LinkItem, "id">) => {
-    if (!user) return;
-    try {
+  // 3. 링크 추가 Mutation
+  const addLinkMutation = useMutation({
+    mutationFn: async (newLink: Omit<LinkItem, "id">) => {
+      if (!user) throw new Error("Not authenticated");
       const linkToAdd = {
         ...newLink,
         icon: determineIcon(newLink.url, newLink.title), 
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
-      
       const linksRef = collection(db, "users", user.uid, "links");
-      await addDoc(linksRef, linkToAdd);
-    } catch (error) {
+      return await addDoc(linksRef, linkToAdd);
+    },
+    onSuccess: () => {
+      toast.success("링크가 성공적으로 추가되었습니다.");
+    },
+    onError: (error) => {
       console.error("Error adding link: ", error);
       toast.error("링크를 추가하는 중 오류가 발생했습니다.");
+    },
+  });
+
+  // 4. 프로필 업데이트 Mutation (낙관적 업데이트 적용)
+  const updateProfileMutation = useMutation({
+    mutationFn: async (newProfile: { username: string; displayName: string; description: string }) => {
+      if (!user || !profile) throw new Error("Not authenticated");
+
+      // 중복 체크
+      if (newProfile.username !== profile.username) {
+        const q = query(collection(db, "users"), where("username", "==", newProfile.username));
+        const snap = await getDocs(q);
+        let available = true;
+        snap.forEach((d) => {
+          if (d.id !== user.uid) available = false;
+        });
+        if (!available) {
+          throw new Error("ALREADY_TAKEN");
+        }
+      }
+
+      const profileRef = doc(db, "users", user.uid);
+      await updateDoc(profileRef, {
+        username: newProfile.username,
+        displayName: newProfile.displayName,
+        description: newProfile.description,
+        updatedAt: serverTimestamp(),
+      });
+    },
+    onMutate: async (newProfile) => {
+      // 나가는 리페칭 취소
+      await queryClient.cancelQueries({ queryKey: ["profile", user?.uid] });
+
+      // 이전 값 스냅샷
+      const previousProfile = queryClient.getQueryData(["profile", user?.uid]);
+
+      // 낙관적으로 캐시 업데이트
+      queryClient.setQueryData(["profile", user?.uid], newProfile);
+
+      return { previousProfile };
+    },
+    onError: (error: any, __, context) => {
+      // 롤백
+      if (context?.previousProfile) {
+        queryClient.setQueryData(["profile", user?.uid], context.previousProfile);
+      }
+      
+      if (error.message === "ALREADY_TAKEN") {
+        toast.error("이미 사용 중인 아이디입니다. 다른 아이디를 선택해주세요.");
+      } else {
+        console.error("Error updating profile:", error);
+        toast.error("프로필 수정 중 오류가 발생했습니다.");
+      }
+    },
+    onSettled: () => {
+      // 무조건 최신 데이터 동기화
+      queryClient.invalidateQueries({ queryKey: ["profile", user?.uid] });
+      setIsEditingProfile(false);
+    },
+    onSuccess: () => {
+      toast.success("프로필이 저장되었습니다.");
     }
-  };
+  });
 
   const handleCheckUsername = async () => {
-    if (!editUsername.trim()) return;
+    if (!editUsername.trim() || !user) return;
     setIsCheckingUsername(true);
     setUsernameAvailable(null);
     try {
@@ -143,7 +213,7 @@ export default function Page() {
       const snap = await getDocs(q);
       let available = true;
       snap.forEach((d) => {
-        if (d.id !== user?.uid) {
+        if (d.id !== user.uid) {
           available = false;
         }
       });
@@ -161,41 +231,7 @@ export default function Page() {
     }
   };
 
-  const handleUpdateProfile = async () => {
-    if (!user) return;
-    
-    // Save 시 다시 한 번 중복 체크
-    if (editUsername.trim() !== profile.username) {
-       const q = query(collection(db, "users"), where("username", "==", editUsername.trim()));
-       const snap = await getDocs(q);
-       let available = true;
-       snap.forEach((d) => {
-         if (d.id !== user.uid) available = false;
-       });
-       if (!available) {
-         toast.error("이미 사용 중인 아이디입니다. 다른 아이디를 선택해주세요.");
-         return;
-       }
-    }
-
-    try {
-      const profileRef = doc(db, "users", user.uid);
-      await updateDoc(profileRef, {
-        username: editUsername.trim(),
-        displayName: editName,
-        description: editDesc,
-        updatedAt: serverTimestamp(),
-      });
-      setProfile({ username: editUsername.trim(), displayName: editName, description: editDesc });
-      setIsEditingProfile(false);
-      toast.success("프로필이 저장되었습니다.");
-    } catch (error) {
-      console.error("Error updating profile:", error);
-      toast.error("프로필 수정 중 오류가 발생했습니다.");
-    }
-  };
-
-  if (loading) {
+  if (authLoading || (user && profileLoading)) {
     return (
       <div className="flex min-h-svh items-center justify-center bg-zinc-950 text-zinc-100">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
@@ -275,7 +311,7 @@ export default function Page() {
                     size="sm" 
                     variant="secondary" 
                     onClick={handleCheckUsername}
-                    disabled={isCheckingUsername || editUsername === profile.username || editUsername.trim() === ""}
+                    disabled={isCheckingUsername || (profile && editUsername === profile.username) || editUsername.trim() === ""}
                   >
                     {isCheckingUsername ? "확인 중..." : "중복 확인"}
                   </Button>
@@ -299,24 +335,37 @@ export default function Page() {
                 <div className="mt-2 flex justify-center gap-2">
                   <Button size="sm" variant="ghost" onClick={() => {
                     setIsEditingProfile(false);
-                    setEditUsername(profile.username);
-                    setEditName(profile.displayName);
-                    setEditDesc(profile.description);
+                    if (profile) {
+                      setEditUsername(profile.username);
+                      setEditName(profile.displayName);
+                      setEditDesc(profile.description);
+                    }
                     setUsernameAvailable(null);
                   }}>취소</Button>
-                  <Button size="sm" className="bg-indigo-600 hover:bg-indigo-500" onClick={handleUpdateProfile}>저장</Button>
+                  <Button 
+                    size="sm" 
+                    className="bg-indigo-600 hover:bg-indigo-500" 
+                    onClick={() => updateProfileMutation.mutate({
+                      username: editUsername.trim(),
+                      displayName: editName,
+                      description: editDesc,
+                    })}
+                    disabled={updateProfileMutation.isPending}
+                  >
+                    {updateProfileMutation.isPending ? "저장 중..." : "저장"}
+                  </Button>
                 </div>
               </div>
             ) : (
               <>
                 <h1 className="mb-2 bg-gradient-to-br from-white to-zinc-500 bg-clip-text text-4xl font-extrabold tracking-tight text-transparent drop-shadow-sm">
-                  {profile.displayName}
+                  {profile?.displayName}
                 </h1>
                 <p className="text-zinc-500 text-sm font-medium tracking-widest mt-1 mb-3">
-                  @{profile.username}
+                  @{profile?.username}
                 </p>
                 <p className="text-zinc-400 font-medium tracking-wide text-sm">
-                  {profile.description}
+                  {profile?.description}
                 </p>
                 <button 
                   onClick={() => setIsEditingProfile(true)}
@@ -331,7 +380,7 @@ export default function Page() {
 
         <div className="flex flex-col gap-4">
           <div className="mb-2">
-            <AddLinkDialog onAdd={handleAddLink} />
+            <AddLinkDialog onAdd={(newLink) => addLinkMutation.mutate(newLink)} />
           </div>
 
           {links.length === 0 ? (

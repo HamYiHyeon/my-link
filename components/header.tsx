@@ -24,17 +24,47 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
+import { db } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
 
 export function Header() {
   const { user, loginWithGoogle, logout } = useAuth();
   const { theme, setTheme } = useTheme();
 
+  // Firestore에서 프로필 데이터 조회 (displayName 기반 URL 생성용)
+  const { data: profile } = useQuery({
+    queryKey: ["profile", user?.uid],
+    queryFn: async () => {
+      if (!user) return null;
+      const snap = await getDoc(doc(db, "users", user.uid));
+      if (snap.exists()) return snap.data() as { displayName: string; username: string };
+      return null;
+    },
+    enabled: !!user,
+  });
+
+  const publicUrl = profile?.displayName
+    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/${encodeURIComponent(profile.displayName)}`
+    : null;
+
   return (
     <header className="fixed top-0 left-0 right-0 z-50 flex h-16 items-center justify-between border-b border-zinc-800/50 bg-zinc-950/80 px-6 backdrop-blur-md">
       <div className="flex items-center gap-2">
-        <h1 className="text-xl font-bold tracking-tight text-white">MyLink</h1>
+        <Link href="/">
+          <h1 className="text-xl font-bold tracking-tight text-white cursor-pointer hover:opacity-80 transition-opacity">MyLink</h1>
+        </Link>
       </div>
       <div className="flex items-center gap-4">
+        {user && (
+          <Link href="/">
+            <Button variant="ghost" size="sm" className="hidden sm:flex text-zinc-400 hover:text-white">
+              <HugeiconsIcon icon={ViewIcon} className="mr-2 h-4 w-4" />
+              내 페이지 관리
+            </Button>
+          </Link>
+        )}
         {user ? (
           <DropdownMenu>
             <DropdownMenuTrigger className="relative h-10 w-10 rounded-full hover:bg-zinc-800 outline-none flex items-center justify-center">
@@ -63,17 +93,24 @@ export function Header() {
                 <DropdownMenuItem 
                   className="cursor-pointer focus:bg-zinc-800 focus:text-white" 
                   onClick={() => {
-                    const url = `${window.location.origin}/${user.uid}`;
-                    navigator.clipboard.writeText(url);
-                    toast.success("링크가 복사되었습니다!");
+                    if (publicUrl) {
+                      navigator.clipboard.writeText(publicUrl);
+                      toast.success("링크가 복사되었습니다!");
+                    }
                   }}
+                  disabled={!publicUrl}
                 >
                   <HugeiconsIcon icon={LinkSquare02Icon} className="mr-2 h-4 w-4" />
                   <span>내 링크 복사하기</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem 
                   className="cursor-pointer focus:bg-zinc-800 focus:text-white" 
-                  onClick={() => window.open(`/${user.uid}`, '_blank')}
+                  onClick={() => {
+                    if (profile?.displayName) {
+                      window.open(`/${encodeURIComponent(profile.displayName)}`, '_blank');
+                    }
+                  }}
+                  disabled={!profile?.displayName}
                 >
                   <HugeiconsIcon icon={ViewIcon} className="mr-2 h-4 w-4" />
                   <span>퍼블릭 뷰로 보기</span>

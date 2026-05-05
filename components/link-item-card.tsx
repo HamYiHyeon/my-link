@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth-provider";
 import { toast } from "sonner";
+import { useMutation } from "@tanstack/react-query";
 import { 
   Dialog, 
   DialogContent, 
@@ -52,48 +53,53 @@ export function LinkItemCard({ link }: LinkItemCardProps) {
   const [editTitle, setEditTitle] = useState(link.title);
   const [editUrl, setEditUrl] = useState(link.url);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleEditSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editTitle || !editUrl || !user) return;
-
-    let validUrl = editUrl;
-    if (!/^https?:\/\//i.test(editUrl)) {
-      validUrl = `https://${editUrl}`;
-    }
-
-    setIsUpdating(true);
-    try {
+  // 링크 수정 Mutation
+  const updateMutation = useMutation({
+    mutationFn: async ({ title, url }: { title: string; url: string }) => {
+      if (!user) throw new Error("Not authenticated");
+      let validUrl = url;
+      if (!/^https?:\/\//i.test(url)) {
+        validUrl = `https://${url}`;
+      }
       const docRef = doc(db, "users", user.uid, "links", link.id);
       await updateDoc(docRef, {
-        title: editTitle,
+        title,
         url: validUrl,
         updatedAt: serverTimestamp(),
       });
+    },
+    onSuccess: () => {
       setIsEditing(false);
-    } catch (error) {
+      toast.success("링크가 수정되었습니다.");
+    },
+    onError: (error) => {
       console.error("Error updating link:", error);
       toast.error("링크를 수정하는 중 오류가 발생했습니다.");
-    } finally {
-      setIsUpdating(false);
-    }
-  };
+    },
+  });
 
-  const handleDelete = async () => {
-    if (!user) return;
-    setIsDeleting(true);
-    try {
+  // 링크 삭제 Mutation
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error("Not authenticated");
       const docRef = doc(db, "users", user.uid, "links", link.id);
       await deleteDoc(docRef);
+    },
+    onSuccess: () => {
       setIsDeleteDialogOpen(false);
-    } catch (error) {
+      toast.success("링크가 삭제되었습니다.");
+    },
+    onError: (error) => {
       console.error("Error deleting link:", error);
       toast.error("링크를 삭제하는 중 오류가 발생했습니다.");
-    } finally {
-      setIsDeleting(false);
-    }
+    },
+  });
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editTitle || !editUrl || !user) return;
+    updateMutation.mutate({ title: editTitle, url: editUrl });
   };
 
   if (isEditing) {
@@ -128,16 +134,16 @@ export function LinkItemCard({ link }: LinkItemCardProps) {
                 setEditUrl(link.url);
               }} 
               className="text-zinc-400 hover:text-white"
-              disabled={isUpdating}
+              disabled={updateMutation.isPending}
             >
               취소
             </Button>
             <Button 
               type="submit" 
               className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold"
-              disabled={isUpdating}
+              disabled={updateMutation.isPending}
             >
-              {isUpdating ? "저장 중..." : "저장"}
+              {updateMutation.isPending ? "저장 중..." : "저장"}
             </Button>
           </div>
         </form>
@@ -216,17 +222,17 @@ export function LinkItemCard({ link }: LinkItemCardProps) {
               variant="ghost"
               onClick={() => setIsDeleteDialogOpen(false)}
               className="text-zinc-300 hover:text-white"
-              disabled={isDeleting}
+              disabled={deleteMutation.isPending}
             >
               취소
             </Button>
             <Button
               variant="destructive"
-              onClick={handleDelete}
+              onClick={() => deleteMutation.mutate()}
               className="bg-red-600 hover:bg-red-500 text-white font-semibold"
-              disabled={isDeleting}
+              disabled={deleteMutation.isPending}
             >
-              {isDeleting ? "삭제 중..." : "삭제하기"}
+              {deleteMutation.isPending ? "삭제 중..." : "삭제하기"}
             </Button>
           </DialogFooter>
         </DialogContent>
