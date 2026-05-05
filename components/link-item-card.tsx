@@ -19,6 +19,7 @@ import { doc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/components/auth-provider";
 import { 
   Dialog, 
   DialogContent, 
@@ -45,6 +46,7 @@ interface LinkItemCardProps {
 }
 
 export function LinkItemCard({ link }: LinkItemCardProps) {
+  const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(link.title);
   const [editUrl, setEditUrl] = useState(link.url);
@@ -54,7 +56,7 @@ export function LinkItemCard({ link }: LinkItemCardProps) {
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editTitle || !editUrl) return;
+    if (!editTitle || !editUrl || !user) return;
 
     let validUrl = editUrl;
     if (!/^https?:\/\//i.test(editUrl)) {
@@ -63,7 +65,8 @@ export function LinkItemCard({ link }: LinkItemCardProps) {
 
     setIsUpdating(true);
     try {
-      await updateDoc(doc(db, "links", link.id), {
+      const docRef = doc(db, "users", user.uid, "links", link.id);
+      await updateDoc(docRef, {
         title: editTitle,
         url: validUrl,
         updatedAt: serverTimestamp(),
@@ -78,9 +81,11 @@ export function LinkItemCard({ link }: LinkItemCardProps) {
   };
 
   const handleDelete = async () => {
+    if (!user) return;
     setIsDeleting(true);
     try {
-      await deleteDoc(doc(db, "links", link.id));
+      const docRef = doc(db, "users", user.uid, "links", link.id);
+      await deleteDoc(docRef);
       setIsDeleteDialogOpen(false);
     } catch (error) {
       console.error("Error deleting link:", error);
