@@ -48,13 +48,17 @@ service cloud.firestore {
                       && request.resource.data.title.size() > 0
                       && request.resource.data.url.size() > 0;
 
-        // 수정: 로그인 + 본인 ID 일치
-        allow update: if request.auth != null
+        // 수정: 로그인 + 본인 ID 일치 (일반 수정)
+        // 또는: clickCount만 증가시키는 경우 (방문자 클릭 카운트용, 인증 불필요)
+        allow update: if (request.auth != null
                       && request.auth.uid == userId
                       && request.resource.data.title is string
                       && request.resource.data.url is string
                       && request.resource.data.title.size() > 0
-                      && request.resource.data.url.size() > 0;
+                      && request.resource.data.url.size() > 0)
+                      || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clickCount'])
+                          && request.resource.data.clickCount is int
+                          && request.resource.data.clickCount == resource.data.get('clickCount', 0) + 1);
 
         // 삭제: 로그인 + 본인 ID 일치
         allow delete: if request.auth != null

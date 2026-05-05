@@ -115,10 +115,12 @@ export function Header() {
                   <HugeiconsIcon icon={ViewIcon} className="mr-2 h-4 w-4" />
                   <span>퍼블릭 뷰로 보기</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem className="cursor-not-allowed focus:bg-zinc-800 text-zinc-600 focus:text-zinc-600">
-                  <HugeiconsIcon icon={ChartHistogramIcon} className="mr-2 h-4 w-4" />
-                  <span>방문자 통계 (준비 중)</span>
-                </DropdownMenuItem>
+                <Link href="/stats">
+                  <DropdownMenuItem className="cursor-pointer focus:bg-zinc-800 focus:text-white">
+                    <HugeiconsIcon icon={ChartHistogramIcon} className="mr-2 h-4 w-4" />
+                    <span>클릭 통계</span>
+                  </DropdownMenuItem>
+                </Link>
               </DropdownMenuGroup>
               <DropdownMenuSeparator className="bg-zinc-800" />
               <DropdownMenuGroup>

@@ -128,6 +128,7 @@ export default function Page() {
       const linkToAdd = {
         ...newLink,
         icon: determineIcon(newLink.url, newLink.title), 
+        clickCount: 0,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };

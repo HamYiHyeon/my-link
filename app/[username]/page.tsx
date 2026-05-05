@@ -10,7 +10,9 @@ import {
   getDoc,
   doc,
   orderBy, 
-  limit 
+  limit,
+  updateDoc,
+  increment 
 } from "firebase/firestore";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,7 +25,6 @@ import {
   UserIcon, 
   ArrowRight01Icon,
 } from "@hugeicons/core-free-icons";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -150,12 +151,21 @@ export default function PublicProfilePage({ params }: { params: Promise<{ userna
             </div>
           ) : (
             links?.map((link) => (
-              <Link
+              <a
                 key={link.id}
                 href={link.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group w-full outline-none"
+                className="group w-full outline-none block"
+                onClick={() => {
+                  // 클릭 카운트를 원자적으로 증가 (동시 클릭에도 안전)
+                  if (userData?.id) {
+                    const linkRef = doc(db, "users", userData.id, "links", link.id);
+                    updateDoc(linkRef, {
+                      clickCount: increment(1),
+                    }).catch((err) => console.error("클릭 카운트 업데이트 실패:", err));
+                  }
+                }}
               >
                 <Card className="relative overflow-hidden border border-zinc-800/50 bg-zinc-900/40 backdrop-blur-md transition-all duration-300 ease-out hover:-translate-y-1 hover:border-zinc-700/80 hover:bg-zinc-800/60 hover:shadow-[0_8px_30px_rgb(0,0,0,0.4)] hover:shadow-indigo-500/10">
                   <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-zinc-400/10 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
@@ -173,7 +183,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ userna
                     </div>
                   </CardContent>
                 </Card>
-              </Link>
+              </a>
             ))
           )}
         </div>
