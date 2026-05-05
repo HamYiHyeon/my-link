@@ -14,7 +14,9 @@ import {
   doc, 
   getDoc, 
   setDoc,
-  updateDoc 
+  updateDoc,
+  where,
+  getDocs
 } from "firebase/firestore";
 import { LinkItemCard } from "@/components/link-item-card";
 import { useAuth } from "@/components/auth-provider";
@@ -38,10 +40,13 @@ const determineIcon = (url: string, title: string) => {
 export default function Page() {
   const { user, loginWithGoogle, loading } = useAuth();
   const [links, setLinks] = useState<LinkItem[]>([]);
-  const [profile, setProfile] = useState({ displayName: "", description: "" });
+  const [profile, setProfile] = useState({ username: "", displayName: "", description: "" });
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editUsername, setEditUsername] = useState("");
   const [editName, setEditName] = useState("");
   const [editDesc, setEditDesc] = useState("");
+  const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -57,26 +62,35 @@ export default function Page() {
       if (snap.exists()) {
         const data = snap.data();
         const emailPrefix = user.email ? user.email.split('@')[0] : "이름 없음";
+        const fallbackName = user.displayName || "이름 없음";
+        
         setProfile({
-          displayName: data.displayName || emailPrefix,
+          username: data.username || emailPrefix,
+          displayName: data.displayName || fallbackName,
           description: data.description || "소개글을 입력해주세요.",
         });
-        setEditName(data.displayName || emailPrefix);
+        setEditUsername(data.username || emailPrefix);
+        setEditName(data.displayName || fallbackName);
         setEditDesc(data.description || "");
       } else {
         // Create default profile
         const emailPrefix = user.email ? user.email.split('@')[0] : "이름 없음";
+        const fallbackName = user.displayName || "이름 없음";
+        
         const defaultProfile = {
-          displayName: emailPrefix,
+          username: emailPrefix,
+          displayName: fallbackName,
           description: "소개글을 입력해주세요.",
           email: user.email,
           createdAt: serverTimestamp(),
         };
         await setDoc(profileRef, defaultProfile);
         setProfile({
+          username: defaultProfile.username,
           displayName: defaultProfile.displayName,
           description: defaultProfile.description,
         });
+        setEditUsername(defaultProfile.username);
         setEditName(defaultProfile.displayName);
         setEditDesc(defaultProfile.description);
       }
@@ -120,17 +134,61 @@ export default function Page() {
     }
   };
 
+  const handleCheckUsername = async () => {
+    if (!editUsername.trim()) return;
+    setIsCheckingUsername(true);
+    setUsernameAvailable(null);
+    try {
+      const q = query(collection(db, "users"), where("username", "==", editUsername.trim()));
+      const snap = await getDocs(q);
+      let available = true;
+      snap.forEach((d) => {
+        if (d.id !== user?.uid) {
+          available = false;
+        }
+      });
+      setUsernameAvailable(available);
+      if (available) {
+        toast.success("사용 가능한 아이디입니다.");
+      } else {
+        toast.error("이미 사용 중인 아이디입니다.");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("아이디 중복 확인 중 오류가 발생했습니다.");
+    } finally {
+      setIsCheckingUsername(false);
+    }
+  };
+
   const handleUpdateProfile = async () => {
     if (!user) return;
+    
+    // Save 시 다시 한 번 중복 체크
+    if (editUsername.trim() !== profile.username) {
+       const q = query(collection(db, "users"), where("username", "==", editUsername.trim()));
+       const snap = await getDocs(q);
+       let available = true;
+       snap.forEach((d) => {
+         if (d.id !== user.uid) available = false;
+       });
+       if (!available) {
+         toast.error("이미 사용 중인 아이디입니다. 다른 아이디를 선택해주세요.");
+         return;
+       }
+    }
+
     try {
       const profileRef = doc(db, "users", user.uid);
       await updateDoc(profileRef, {
+        username: editUsername.trim(),
         displayName: editName,
         description: editDesc,
         updatedAt: serverTimestamp(),
       });
-      setProfile({ displayName: editName, description: editDesc });
+      setProfile({ username: editUsername.trim(), displayName: editName, description: editDesc });
       setIsEditingProfile(false);
+      toast.success("프로필이 저장되었습니다.");
     } catch (error) {
       console.error("Error updating profile:", error);
       toast.error("프로필 수정 중 오류가 발생했습니다.");
@@ -199,22 +257,53 @@ export default function Page() {
         <div className="mb-8 text-center">
           <div className="group relative inline-block">
             {isEditingProfile ? (
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-3 w-full max-w-sm mx-auto">
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 bg-zinc-900/50 rounded-lg border border-zinc-800 focus-within:border-indigo-500/50 px-3 flex items-center">
+                    <span className="text-zinc-500 text-sm">mylink.com/</span>
+                    <input
+                      value={editUsername}
+                      onChange={(e) => {
+                        setEditUsername(e.target.value);
+                        setUsernameAvailable(null);
+                      }}
+                      className="bg-transparent text-white text-sm outline-none py-2 w-full ml-1"
+                      placeholder="username"
+                    />
+                  </div>
+                  <Button 
+                    size="sm" 
+                    variant="secondary" 
+                    onClick={handleCheckUsername}
+                    disabled={isCheckingUsername || editUsername === profile.username || editUsername.trim() === ""}
+                  >
+                    {isCheckingUsername ? "확인 중..." : "중복 확인"}
+                  </Button>
+                </div>
+                {usernameAvailable === false && <p className="text-red-400 text-xs text-left ml-2">이미 사용 중인 아이디입니다.</p>}
+                {usernameAvailable === true && <p className="text-green-400 text-xs text-left ml-2">사용 가능한 아이디입니다.</p>}
+                
                 <input
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  className="bg-transparent text-center text-4xl font-extrabold tracking-tight text-white outline-none focus:ring-2 focus:ring-indigo-500/50 rounded-lg px-2"
+                  className="bg-transparent text-center text-3xl font-extrabold tracking-tight text-white outline-none focus:ring-2 focus:ring-indigo-500/50 rounded-lg px-2 py-1 mt-2"
                   placeholder="이름"
                   autoFocus
                 />
                 <input
                   value={editDesc}
                   onChange={(e) => setEditDesc(e.target.value)}
-                  className="bg-transparent text-center text-zinc-400 font-medium tracking-wide text-sm outline-none focus:ring-2 focus:ring-indigo-500/50 rounded-lg px-2"
+                  className="bg-transparent text-center text-zinc-400 font-medium tracking-wide text-sm outline-none focus:ring-2 focus:ring-indigo-500/50 rounded-lg px-2 py-1"
                   placeholder="소개글"
                 />
                 <div className="mt-2 flex justify-center gap-2">
-                  <Button size="sm" variant="ghost" onClick={() => setIsEditingProfile(false)}>취소</Button>
+                  <Button size="sm" variant="ghost" onClick={() => {
+                    setIsEditingProfile(false);
+                    setEditUsername(profile.username);
+                    setEditName(profile.displayName);
+                    setEditDesc(profile.description);
+                    setUsernameAvailable(null);
+                  }}>취소</Button>
                   <Button size="sm" className="bg-indigo-600 hover:bg-indigo-500" onClick={handleUpdateProfile}>저장</Button>
                 </div>
               </div>
@@ -223,6 +312,9 @@ export default function Page() {
                 <h1 className="mb-2 bg-gradient-to-br from-white to-zinc-500 bg-clip-text text-4xl font-extrabold tracking-tight text-transparent drop-shadow-sm">
                   {profile.displayName}
                 </h1>
+                <p className="text-zinc-500 text-sm font-medium tracking-widest mt-1 mb-3">
+                  @{profile.username}
+                </p>
                 <p className="text-zinc-400 font-medium tracking-wide text-sm">
                   {profile.description}
                 </p>
