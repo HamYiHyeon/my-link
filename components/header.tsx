@@ -2,11 +2,32 @@
 
 import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
-import { Logout01Icon } from "@hugeicons/core-free-icons";
+import { 
+  Logout01Icon, 
+  LinkSquare02Icon, 
+  ViewIcon, 
+  Settings02Icon, 
+  Moon02Icon,
+  Sun03Icon,
+  ChartHistogramIcon
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { toast } from "sonner";
+import { useTheme } from "next-themes";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export function Header() {
   const { user, loginWithGoogle, logout } = useAuth();
+  const { theme, setTheme } = useTheme();
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 flex h-16 items-center justify-between border-b border-zinc-800/50 bg-zinc-950/80 px-6 backdrop-blur-md">
@@ -15,32 +36,77 @@ export function Header() {
       </div>
       <div className="flex items-center gap-4">
         {user ? (
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                const url = `${window.location.origin}/${user.uid}`;
-                navigator.clipboard.writeText(url);
-                alert("링크가 복사되었습니다!");
-              }}
-              className="hidden sm:flex items-center gap-2 border-zinc-700 bg-zinc-900/50 text-zinc-300 hover:text-white hover:bg-zinc-800"
-            >
-              <span className="text-xs">내 링크 복사</span>
-            </Button>
-            <span className="text-sm font-medium text-zinc-300">
-              {user.email ? user.email.split('@')[0] : "사용자"}님
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={logout}
-              className="flex items-center gap-2 text-zinc-400 hover:text-white hover:bg-zinc-800"
-            >
-              <HugeiconsIcon icon={Logout01Icon} className="w-[18px] h-[18px]" />
-              <span className="hidden sm:inline">로그아웃</span>
-            </Button>
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger className="relative h-10 w-10 rounded-full hover:bg-zinc-800 outline-none flex items-center justify-center">
+              <Avatar className="h-10 w-10 border border-zinc-800 transition-opacity hover:opacity-80">
+                <AvatarImage src={user.photoURL || ""} alt={user.displayName || "User"} />
+                <AvatarFallback className="bg-zinc-800 text-zinc-300 font-semibold">
+                  {user.email ? user.email.charAt(0).toUpperCase() : "U"}
+                </AvatarFallback>
+              </Avatar>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56 bg-zinc-950 border-zinc-800 text-zinc-100" align="end" forceMount>
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none text-white">
+                      {user.email ? user.email.split('@')[0] : "사용자"}
+                    </p>
+                    <p className="text-xs leading-none text-zinc-400">
+                      {user.email}
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator className="bg-zinc-800" />
+              <DropdownMenuGroup>
+                <DropdownMenuItem 
+                  className="cursor-pointer focus:bg-zinc-800 focus:text-white" 
+                  onClick={() => {
+                    const url = `${window.location.origin}/${user.uid}`;
+                    navigator.clipboard.writeText(url);
+                    toast.success("링크가 복사되었습니다!");
+                  }}
+                >
+                  <HugeiconsIcon icon={LinkSquare02Icon} className="mr-2 h-4 w-4" />
+                  <span>내 링크 복사하기</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  className="cursor-pointer focus:bg-zinc-800 focus:text-white" 
+                  onClick={() => window.open(`/${user.uid}`, '_blank')}
+                >
+                  <HugeiconsIcon icon={ViewIcon} className="mr-2 h-4 w-4" />
+                  <span>퍼블릭 뷰로 보기</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem className="cursor-not-allowed focus:bg-zinc-800 text-zinc-600 focus:text-zinc-600">
+                  <HugeiconsIcon icon={ChartHistogramIcon} className="mr-2 h-4 w-4" />
+                  <span>방문자 통계 (준비 중)</span>
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator className="bg-zinc-800" />
+              <DropdownMenuGroup>
+                <DropdownMenuItem className="cursor-pointer focus:bg-zinc-800 focus:text-white">
+                  <HugeiconsIcon icon={Settings02Icon} className="mr-2 h-4 w-4" />
+                  <span>프로필 설정</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  className="cursor-pointer focus:bg-zinc-800 focus:text-white"
+                  onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                >
+                  <HugeiconsIcon icon={theme === "dark" ? Sun03Icon : Moon02Icon} className="mr-2 h-4 w-4" />
+                  <span>{theme === "dark" ? "라이트 모드" : "다크 모드"}</span>
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator className="bg-zinc-800" />
+              <DropdownMenuItem 
+                className="cursor-pointer text-red-400 focus:bg-red-500/10 focus:text-red-400" 
+                onClick={logout}
+              >
+                <HugeiconsIcon icon={Logout01Icon} className="mr-2 h-4 w-4" />
+                <span>로그아웃</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         ) : (
           <Button
             variant="outline"

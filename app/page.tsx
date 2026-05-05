@@ -19,6 +19,7 @@ import {
 import { LinkItemCard } from "@/components/link-item-card";
 import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { PencilEdit02Icon, CheckReadOnlyIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
@@ -115,7 +116,7 @@ export default function Page() {
       await addDoc(linksRef, linkToAdd);
     } catch (error) {
       console.error("Error adding link: ", error);
-      alert("링크를 추가하는 중 오류가 발생했습니다.");
+      toast.error("링크를 추가하는 중 오류가 발생했습니다.");
     }
   };
 
@@ -132,7 +133,7 @@ export default function Page() {
       setIsEditingProfile(false);
     } catch (error) {
       console.error("Error updating profile:", error);
-      alert("프로필 수정 중 오류가 발생했습니다.");
+      toast.error("프로필 수정 중 오류가 발생했습니다.");
     }
   };
 

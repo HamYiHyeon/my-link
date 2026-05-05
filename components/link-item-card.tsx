@@ -20,6 +20,7 @@ import { db } from "@/lib/firebase";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth-provider";
+import { toast } from "sonner";
 import { 
   Dialog, 
   DialogContent, 
@@ -74,7 +75,7 @@ export function LinkItemCard({ link }: LinkItemCardProps) {
       setIsEditing(false);
     } catch (error) {
       console.error("Error updating link:", error);
-      alert("링크를 수정하는 중 오류가 발생했습니다.");
+      toast.error("링크를 수정하는 중 오류가 발생했습니다.");
     } finally {
       setIsUpdating(false);
     }
@@ -89,7 +90,7 @@ export function LinkItemCard({ link }: LinkItemCardProps) {
       setIsDeleteDialogOpen(false);
     } catch (error) {
       console.error("Error deleting link:", error);
-      alert("링크를 삭제하는 중 오류가 발생했습니다.");
+      toast.error("링크를 삭제하는 중 오류가 발생했습니다.");
     } finally {
       setIsDeleting(false);
     }
