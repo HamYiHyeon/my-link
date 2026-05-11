@@ -23,8 +23,15 @@ import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { PencilEdit02Icon } from "@hugeicons/core-free-icons";
+import { 
+  PencilEdit02Icon, 
+  Link01Icon, 
+  ChartBarLineIcon, 
+  UserIcon,
+  ArrowRight02Icon 
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import Link from "next/link";
 
 const determineIcon = (url: string, title: string) => {
   const lowerUrl = url.toLowerCase();
@@ -242,40 +249,85 @@ export default function Page() {
 
   if (!user) {
     return (
-      <div className="flex min-h-svh flex-col items-center justify-center bg-zinc-950 px-6 text-center text-zinc-100">
-        <div className="pointer-events-none fixed inset-0 flex items-center justify-center opacity-20">
-          <div className="absolute top-[-10%] h-[500px] w-[500px] rounded-full bg-indigo-600/30 blur-[120px]" />
-          <div className="absolute bottom-[-10%] right-[-10%] h-[400px] w-[400px] rounded-full bg-violet-600/20 blur-[100px]" />
+      <div className="flex min-h-svh flex-col items-center justify-center bg-zinc-950 px-6 text-zinc-100 selection:bg-indigo-500/30">
+        {/* Background Glow */}
+        <div className="pointer-events-none fixed inset-0 flex items-center justify-center opacity-25">
+          <div className="absolute top-[-20%] left-[-10%] h-[600px] w-[600px] rounded-full bg-indigo-600/20 blur-[140px]" />
+          <div className="absolute bottom-[-10%] right-[-10%] h-[500px] w-[500px] rounded-full bg-violet-600/20 blur-[120px]" />
         </div>
 
-        <div className="relative z-10 flex max-w-md flex-col items-center gap-8">
-          <div className="space-y-4">
-            <h1 className="bg-gradient-to-br from-white to-zinc-500 bg-clip-text text-5xl font-black tracking-tight text-transparent">
-              MyLink
+        <div className="relative z-10 flex w-full max-w-5xl flex-col items-center gap-20 py-20 animate-fade-in">
+          {/* Hero Section */}
+          <div className="flex flex-col items-center gap-6 text-center max-w-3xl">
+            <div className="inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-4 py-1.5 text-sm font-semibold text-indigo-400 backdrop-blur-md">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-75"></span>
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-indigo-500"></span>
+              </span>
+              v1.0 정식 출시
+            </div>
+            <h1 className="bg-gradient-to-br from-white via-white to-zinc-500 bg-clip-text text-6xl md:text-8xl font-black tracking-tight text-transparent leading-[1.1]">
+              마이링크
             </h1>
-            <p className="text-lg text-zinc-400">
-              개발자를 위한 통합 링크 프로필 서비스.<br />
-              흩어져 있는 당신의 링크를 한곳에 모아보세요.
+            <p className="text-xl md:text-2xl text-zinc-400 font-medium leading-relaxed">
+              나만의 링크 페이지를 <span className="text-white font-bold underline decoration-indigo-500 decoration-2 underline-offset-4">30분 만에</span>
             </p>
+            <div className="mt-4 flex flex-wrap justify-center gap-4">
+              <Link href="/login">
+                <Button 
+                  size="lg" 
+                  className="group h-16 px-10 rounded-2xl bg-indigo-600 text-lg font-bold transition-all hover:bg-indigo-500 hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(79,70,229,0.4)]"
+                >
+                  시작하기
+                  <HugeiconsIcon icon={ArrowRight02Icon} className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+
+          {/* Feature Cards Section */}
+          <div className="grid w-full grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              { 
+                title: "링크 관리", 
+                desc: "다양한 소셜 링크와 프로필을 실시간으로 손쉽게 관리하세요.", 
+                icon: Link01Icon,
+                color: "indigo"
+              },
+              { 
+                title: "클릭 통계", 
+                desc: "어떤 링크가 가장 인기가 많은지 방문자 통계를 한눈에 확인하세요.", 
+                icon: ChartBarLineIcon,
+                color: "violet"
+              },
+              { 
+                title: "개인 URL", 
+                desc: "기억하기 쉬운 나만의 고유한 URL로 정체성을 표현해 보세요.", 
+                icon: UserIcon,
+                color: "fuchsia"
+              },
+            ].map((feature, idx) => (
+              <div 
+                key={idx}
+                className="group relative flex flex-col gap-4 rounded-3xl border border-zinc-800 bg-zinc-900/40 p-8 transition-all hover:border-zinc-700/50 hover:bg-zinc-800/40 hover:shadow-2xl"
+              >
+                <div className={`flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-800/80 text-zinc-400 transition-all group-hover:bg-${feature.color}-500/20 group-hover:text-${feature.color}-400 group-hover:scale-110`}>
+                  <HugeiconsIcon icon={feature.icon} size={28} />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-bold text-white">{feature.title}</h3>
+                  <p className="text-zinc-400 leading-relaxed text-sm">{feature.desc}</p>
+                </div>
+                <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/5 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+              </div>
+            ))}
           </div>
           
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-8 backdrop-blur-xl">
-            <h2 className="mb-4 text-xl font-bold">시작하기</h2>
-            <p className="mb-6 text-sm text-zinc-400">
-              로그인 후 나만의 프로필 페이지를 만들고<br />
-              다양한 소셜 링크를 관리할 수 있습니다.
+          <footer className="mt-10 flex flex-col items-center gap-4">
+            <div className="h-px w-24 bg-gradient-to-r from-transparent via-zinc-700 to-transparent" />
+            <p className="text-xs font-bold tracking-[0.3em] text-zinc-600 uppercase">
+              Powered by MyLink
             </p>
-            <Button 
-              size="lg" 
-              onClick={loginWithGoogle}
-              className="w-full bg-indigo-600 font-bold hover:bg-indigo-500"
-            >
-              Google로 시작하기
-            </Button>
-          </div>
-          
-          <footer className="text-sm text-zinc-500">
-            Powered by MyLink
           </footer>
         </div>
       </div>
