@@ -18,6 +18,9 @@ const fontMono = Geist_Mono({
 
 const getBaseUrl = () => {
   if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
+  // Vercel 프로덕션 환경인 경우 고정된 프로덕션 도메인 사용
+  if (process.env.VERCEL_ENV === "production") return "https://my-link-xg8e.vercel.app";
+  // Vercel Preview 환경인 경우 해당 Preview 도메인 사용
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   if (process.env.NODE_ENV === "development") return "http://localhost:3000";
   return "https://my-link-xg8e.vercel.app";
