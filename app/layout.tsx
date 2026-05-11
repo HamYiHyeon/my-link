@@ -16,7 +16,13 @@ const fontMono = Geist_Mono({
   variable: "--font-mono",
 })
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://mylink.com";
+const getBaseUrl = () => {
+  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return "http://localhost:3000";
+};
+
+const siteUrl = getBaseUrl();
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -34,11 +40,20 @@ export const metadata: Metadata = {
     siteName: "MyLink",
     locale: "ko_KR",
     type: "website",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "MyLink - 개발자를 위한 통합 링크 프로필",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "MyLink - 개발자를 위한 통합 링크 프로필",
     description: "흩어져 있는 당신의 소셜 링크를 한곳에 모아 공유하세요.",
+    images: ["/opengraph-image"],
   },
   robots: {
     index: true,
