@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google"
 
 import "./globals.css"
@@ -14,6 +15,43 @@ const fontMono = Geist_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
 })
+
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://mylink.com";
+
+export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "MyLink - 개발자를 위한 통합 링크 프로필",
+    template: "%s | MyLink",
+  },
+  description: "흩어져 있는 당신의 소셜 링크를 한곳에 모아 공유하세요. 30분 만에 만드는 나만의 프로필 페이지.",
+  keywords: ["개발자 링크", "프로필 링크", "멀티링크", "MyLink", "소셜 링크", "포트폴리오", "개인 브랜딩"],
+  authors: [{ name: "MyLink Team" }],
+  openGraph: {
+    title: "MyLink - 개발자를 위한 통합 링크 프로필",
+    description: "흩어져 있는 당신의 소셜 링크를 한곳에 모아 공유하세요. 30분 만에 만드는 나만의 프로필 페이지.",
+    url: siteUrl,
+    siteName: "MyLink",
+    locale: "ko_KR",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "MyLink - 개발자를 위한 통합 링크 프로필",
+    description: "흩어져 있는 당신의 소셜 링크를 한곳에 모아 공유하세요.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+};
 
 export default function RootLayout({
   children,
